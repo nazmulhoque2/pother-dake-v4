@@ -3,6 +3,7 @@ import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { NavigationContainer } from '@react-navigation/native';
 import { useAuth } from '../auth/AuthContext';
 import { ActivityIndicator, View as RNView } from 'react-native';
+import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 
 // Auth
 import AuthScreen from '../screens/Auth';
@@ -37,23 +38,23 @@ import AdminComplaints from '../screens/AdminComplaints';
 export type RootStackParamList = {
   Auth: undefined;
   CompleteRegistration: undefined;
-  // Passenger
-  PassengerHome: undefined;
-  Search: undefined;
+  // Tabs containers
+  PassengerTabs: undefined;
+  DriverTabs: undefined;
+  AdminTabs: undefined;
+  // Shared nested screens
   TripDetails: { id?: string };
   BookingHistory: undefined;
   Profile: undefined;
   Wallet: undefined;
   MessagesList: undefined;
   Conversation: { id: string };
-  // Driver
-  DriverHome: undefined;
+  // Driver nested
   CreateTrip: undefined;
   MyTrips: undefined;
   Earnings: undefined;
   Verification: undefined;
-  // Admin
-  AdminHome: undefined;
+  // Admin nested
   AdminUsers: undefined;
   AdminDrivers: undefined;
   AdminBookings: undefined;
@@ -63,6 +64,40 @@ export type RootStackParamList = {
 };
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
+const Tab = createBottomTabNavigator();
+
+function PassengerTabs() {
+  return (
+    <Tab.Navigator screenOptions={{ headerShown: false }}>
+      <Tab.Screen name="PassengerHome" component={PassengerDashboard} options={{ title: 'Home' as any }} />
+      <Tab.Screen name="Search" component={SearchResults} options={{ title: 'Search' as any }} />
+      <Tab.Screen name="MessagesList" component={MessagesList} options={{ title: 'Messages' as any }} />
+      <Tab.Screen name="Profile" component={Profile} options={{ title: 'Profile' as any }} />
+    </Tab.Navigator>
+  );
+}
+
+function DriverTabs() {
+  return (
+    <Tab.Navigator screenOptions={{ headerShown: false }}>
+      <Tab.Screen name="DriverHome" component={DriverDashboard} options={{ title: 'Home' as any }} />
+      <Tab.Screen name="MyTrips" component={MyTrips} options={{ title: 'My Trips' as any }} />
+      <Tab.Screen name="CreateTrip" component={CreateTrip} options={{ title: 'Create' as any }} />
+      <Tab.Screen name="MessagesList" component={MessagesList} options={{ title: 'Messages' as any }} />
+    </Tab.Navigator>
+  );
+}
+
+function AdminTabs() {
+  return (
+    <Tab.Navigator screenOptions={{ headerShown: false }}>
+      <Tab.Screen name="AdminHome" component={AdminDashboard} options={{ title: 'Home' as any }} />
+      <Tab.Screen name="AdminBookings" component={AdminBookings} options={{ title: 'Bookings' as any }} />
+      <Tab.Screen name="AdminReports" component={AdminReports} options={{ title: 'Reports' as any }} />
+      <Tab.Screen name="AdminDrivers" component={AdminDrivers} options={{ title: 'Drivers' as any }} />
+    </Tab.Navigator>
+  );
+}
 
 export default function RootNavigator() {
   const { user, tokenLoaded } = useAuth();
@@ -84,17 +119,13 @@ export default function RootNavigator() {
     );
   }
 
-  // Role-based navigator simplified into stack routes for each role
   if (user.role === 'PASSENGER') {
     return (
       <Stack.Navigator screenOptions={{ headerShown: false }}>
-        <Stack.Screen name="PassengerHome" component={PassengerDashboard} />
-        <Stack.Screen name="Search" component={SearchResults} />
+        <Stack.Screen name="PassengerTabs" component={PassengerTabs} />
         <Stack.Screen name="TripDetails" component={TripDetails} />
         <Stack.Screen name="BookingHistory" component={BookingHistory} />
-        <Stack.Screen name="Profile" component={Profile} />
         <Stack.Screen name="Wallet" component={Wallet} />
-        <Stack.Screen name="MessagesList" component={MessagesList} />
         <Stack.Screen name="Conversation" component={Conversation} />
       </Stack.Navigator>
     );
@@ -103,14 +134,12 @@ export default function RootNavigator() {
   if (user.role === 'DRIVER') {
     return (
       <Stack.Navigator screenOptions={{ headerShown: false }}>
-        <Stack.Screen name="DriverHome" component={DriverDashboard} />
+        <Stack.Screen name="DriverTabs" component={DriverTabs} />
         <Stack.Screen name="CreateTrip" component={CreateTrip} />
-        <Stack.Screen name="MyTrips" component={MyTrips} />
+        <Stack.Screen name="TripDetails" component={TripDetails} />
         <Stack.Screen name="Earnings" component={Earnings} />
         <Stack.Screen name="Verification" component={Verification} />
-        <Stack.Screen name="MessagesList" component={MessagesList} />
         <Stack.Screen name="Conversation" component={Conversation} />
-        <Stack.Screen name="Profile" component={Profile} />
       </Stack.Navigator>
     );
   }
@@ -118,12 +147,10 @@ export default function RootNavigator() {
   // Admin
   return (
     <Stack.Navigator screenOptions={{ headerShown: false }}>
-      <Stack.Screen name="AdminHome" component={AdminDashboard} />
+      <Stack.Screen name="AdminTabs" component={AdminTabs} />
       <Stack.Screen name="AdminUsers" component={AdminUsers} />
       <Stack.Screen name="AdminDrivers" component={AdminDrivers} />
-      <Stack.Screen name="AdminBookings" component={AdminBookings} />
       <Stack.Screen name="AdminPayments" component={AdminPayments} />
-      <Stack.Screen name="AdminReports" component={AdminReports} />
       <Stack.Screen name="AdminComplaints" component={AdminComplaints} />
       <Stack.Screen name="Profile" component={Profile} />
     </Stack.Navigator>

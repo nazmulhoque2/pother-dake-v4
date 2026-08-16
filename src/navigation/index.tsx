@@ -1,30 +1,32 @@
 import React from 'react';
-import { View, Text } from 'react-native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
+import { NavigationContainer } from '@react-navigation/native';
 import { useAuth } from '../auth/AuthContext';
 import { ActivityIndicator, View as RNView } from 'react-native';
 
-// Auth Screens
+// Auth
 import AuthScreen from '../screens/Auth';
 import CompleteRegistration from '../screens/CompleteRegistration';
 
-// App Screens
-import LandingScreen from '../screens/Landing';
+// Passenger
+import PassengerDashboard from '../screens/PassengerDashboard';
 import SearchResults from '../screens/SearchResults';
 import TripDetails from '../screens/TripDetails';
-import PassengerDashboard from '../screens/PassengerDashboard';
-import DriverDashboard from '../screens/DriverDashboard';
-import AdminDashboard from '../screens/AdminDashboard';
-import CreateTrip from '../screens/CreateTrip';
-import ProfileScreen from '../screens/Profile';
-import BookingHistoryScreen from '../screens/BookingHistory';
-import MyTripsScreen from '../screens/MyTrips';
+import BookingHistory from '../screens/BookingHistory';
+import Profile from '../screens/Profile';
+import Wallet from '../screens/PassengerWallet';
+import MessagesList from '../screens/MessagesList';
+import Conversation from '../screens/Conversation';
 
-// New screens added for feature parity
-import PassengerWallet from '../screens/PassengerWallet';
-import Messages from '../screens/Messages';
-import DriverEarnings from '../screens/DriverEarnings';
-import DriverVerification from '../screens/DriverVerification';
+// Driver
+import DriverDashboard from '../screens/DriverDashboard';
+import CreateTrip from '../screens/CreateTrip';
+import MyTrips from '../screens/MyTrips';
+import Earnings from '../screens/DriverEarnings';
+import Verification from '../screens/DriverVerification';
+
+// Admin
+import AdminDashboard from '../screens/AdminDashboard';
 import AdminUsers from '../screens/AdminUsers';
 import AdminDrivers from '../screens/AdminDrivers';
 import AdminBookings from '../screens/AdminBookings';
@@ -33,25 +35,25 @@ import AdminReports from '../screens/AdminReports';
 import AdminComplaints from '../screens/AdminComplaints';
 
 export type RootStackParamList = {
-  // Auth
   Auth: undefined;
   CompleteRegistration: undefined;
-  // App
-  Landing: undefined;
+  // Passenger
+  PassengerHome: undefined;
   Search: undefined;
   TripDetails: { id?: string };
-  Passenger: undefined;
-  Driver: undefined;
-  Admin: undefined;
-  CreateTrip: undefined;
-  Profile: undefined;
   BookingHistory: undefined;
-  MyTrips: undefined;
-  // New
+  Profile: undefined;
   Wallet: undefined;
-  Messages: undefined;
+  MessagesList: undefined;
+  Conversation: { id: string };
+  // Driver
+  DriverHome: undefined;
+  CreateTrip: undefined;
+  MyTrips: undefined;
   Earnings: undefined;
   Verification: undefined;
+  // Admin
+  AdminHome: undefined;
   AdminUsers: undefined;
   AdminDrivers: undefined;
   AdminBookings: undefined;
@@ -61,52 +63,6 @@ export type RootStackParamList = {
 };
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
-
-function AuthNavigator() {
-  return (
-    <Stack.Navigator
-      initialRouteName="Auth"
-      screenOptions={{ headerShown: false }}
-    >
-      <Stack.Screen name="Auth" component={AuthScreen} />
-      <Stack.Screen name="CompleteRegistration" component={CompleteRegistration} />
-    </Stack.Navigator>
-  );
-}
-
-function AppNavigator() {
-  return (
-    <Stack.Navigator
-      initialRouteName="Landing"
-      screenOptions={{ headerShown: false }}
-    >
-      <Stack.Screen name="Landing" component={LandingScreen} />
-      <Stack.Screen name="Search" component={SearchResults} />
-      <Stack.Screen name="TripDetails" component={TripDetails} />
-      <Stack.Screen name="Passenger" component={PassengerDashboard} />
-      <Stack.Screen name="Driver" component={DriverDashboard} />
-      <Stack.Screen name="Admin" component={AdminDashboard} />
-      <Stack.Screen name="CreateTrip" component={CreateTrip} />
-      <Stack.Screen name="Profile" component={ProfileScreen} />
-      <Stack.Screen name="BookingHistory" component={BookingHistoryScreen} />
-      <Stack.Screen name="MyTrips" component={MyTripsScreen} />
-
-      {/* New screens */}
-      <Stack.Screen name="Wallet" component={PassengerWallet} />
-      <Stack.Screen name="Messages" component={Messages} />
-      <Stack.Screen name="Earnings" component={DriverEarnings} />
-      <Stack.Screen name="Verification" component={DriverVerification} />
-
-      {/* Admin sub-screens */}
-      <Stack.Screen name="AdminUsers" component={AdminUsers} />
-      <Stack.Screen name="AdminDrivers" component={AdminDrivers} />
-      <Stack.Screen name="AdminBookings" component={AdminBookings} />
-      <Stack.Screen name="AdminPayments" component={AdminPayments} />
-      <Stack.Screen name="AdminReports" component={AdminReports} />
-      <Stack.Screen name="AdminComplaints" component={AdminComplaints} />
-    </Stack.Navigator>
-  );
-}
 
 export default function RootNavigator() {
   const { user, tokenLoaded } = useAuth();
@@ -119,5 +75,57 @@ export default function RootNavigator() {
     );
   }
 
-  return user ? <AppNavigator /> : <AuthNavigator />;
+  if (!user) {
+    return (
+      <Stack.Navigator screenOptions={{ headerShown: false }}>
+        <Stack.Screen name="Auth" component={AuthScreen} />
+        <Stack.Screen name="CompleteRegistration" component={CompleteRegistration} />
+      </Stack.Navigator>
+    );
+  }
+
+  // Role-based navigator simplified into stack routes for each role
+  if (user.role === 'PASSENGER') {
+    return (
+      <Stack.Navigator screenOptions={{ headerShown: false }}>
+        <Stack.Screen name="PassengerHome" component={PassengerDashboard} />
+        <Stack.Screen name="Search" component={SearchResults} />
+        <Stack.Screen name="TripDetails" component={TripDetails} />
+        <Stack.Screen name="BookingHistory" component={BookingHistory} />
+        <Stack.Screen name="Profile" component={Profile} />
+        <Stack.Screen name="Wallet" component={Wallet} />
+        <Stack.Screen name="MessagesList" component={MessagesList} />
+        <Stack.Screen name="Conversation" component={Conversation} />
+      </Stack.Navigator>
+    );
+  }
+
+  if (user.role === 'DRIVER') {
+    return (
+      <Stack.Navigator screenOptions={{ headerShown: false }}>
+        <Stack.Screen name="DriverHome" component={DriverDashboard} />
+        <Stack.Screen name="CreateTrip" component={CreateTrip} />
+        <Stack.Screen name="MyTrips" component={MyTrips} />
+        <Stack.Screen name="Earnings" component={Earnings} />
+        <Stack.Screen name="Verification" component={Verification} />
+        <Stack.Screen name="MessagesList" component={MessagesList} />
+        <Stack.Screen name="Conversation" component={Conversation} />
+        <Stack.Screen name="Profile" component={Profile} />
+      </Stack.Navigator>
+    );
+  }
+
+  // Admin
+  return (
+    <Stack.Navigator screenOptions={{ headerShown: false }}>
+      <Stack.Screen name="AdminHome" component={AdminDashboard} />
+      <Stack.Screen name="AdminUsers" component={AdminUsers} />
+      <Stack.Screen name="AdminDrivers" component={AdminDrivers} />
+      <Stack.Screen name="AdminBookings" component={AdminBookings} />
+      <Stack.Screen name="AdminPayments" component={AdminPayments} />
+      <Stack.Screen name="AdminReports" component={AdminReports} />
+      <Stack.Screen name="AdminComplaints" component={AdminComplaints} />
+      <Stack.Screen name="Profile" component={Profile} />
+    </Stack.Navigator>
+  );
 }

@@ -3,7 +3,7 @@
  * Defines the contract for data sources (Mock or API)
  */
 
-import { Trip, Booking, User, Driver, Passenger } from '../types';
+import { Trip, Booking, User, Driver, Passenger, Conversation, Message, Wallet, Transaction } from '../types';
 
 export interface IDataSource {
   // Authentication
@@ -29,6 +29,20 @@ export interface IDataSource {
   bookTrip(tripId: string, passengerId: string, seatsBooked: number): Promise<Booking>;
   getBookings(passengerId?: string): Promise<Booking[]>;
   cancelBooking(bookingId: string): Promise<void>;
+
+  // Messaging
+  getConversations(userId: string): Promise<Conversation[]>;
+  getConversation(conversationId: string): Promise<Conversation | null>;
+  sendMessage(conversationId: string, fromUserId: string, text: string): Promise<Message>;
+
+  // Wallet / Transactions
+  getWallet(userId: string): Promise<Wallet>;
+  getTransactions(userId: string): Promise<Transaction[]>;
+  createTransaction(tx: Omit<Transaction, 'id' | 'date'>): Promise<Transaction>;
+
+  // Admin helpers
+  setDriverVerification?(driverId: string, status: 'PENDING' | 'APPROVED' | 'REJECTED'): Promise<void>;
+  markPaymentComplete?(bookingId: string): Promise<void>;
 
   // Optional admin helpers
   getCompletedTrips?(): Promise<Trip[]>;
@@ -103,6 +117,54 @@ class Repository implements IDataSource {
 
   async cancelBooking(bookingId: string): Promise<void> {
     return this.dataSource.cancelBooking(bookingId);
+  }
+
+  async getConversations(userId: string): Promise<Conversation[]> {
+    // @ts-ignore
+    return (this.dataSource as any).getConversations(userId);
+  }
+
+  async getConversation(conversationId: string): Promise<Conversation | null> {
+    // @ts-ignore
+    return (this.dataSource as any).getConversation(conversationId);
+  }
+
+  async sendMessage(conversationId: string, fromUserId: string, text: string): Promise<Message> {
+    // @ts-ignore
+    return (this.dataSource as any).sendMessage(conversationId, fromUserId, text);
+  }
+
+  async getWallet(userId: string): Promise<Wallet> {
+    // @ts-ignore
+    return (this.dataSource as any).getWallet(userId);
+  }
+
+  async getTransactions(userId: string): Promise<Transaction[]> {
+    // @ts-ignore
+    return (this.dataSource as any).getTransactions(userId);
+  }
+
+  async createTransaction(tx: Omit<Transaction, 'id' | 'date'>): Promise<Transaction> {
+    // @ts-ignore
+    return (this.dataSource as any).createTransaction(tx);
+  }
+
+  async setDriverVerification(driverId: string, status: 'PENDING' | 'APPROVED' | 'REJECTED'): Promise<void> {
+    // @ts-ignore
+    if (typeof (this.dataSource as any).setDriverVerification === 'function') {
+      // @ts-ignore
+      return (this.dataSource as any).setDriverVerification(driverId, status);
+    }
+    return Promise.resolve();
+  }
+
+  async markPaymentComplete(bookingId: string): Promise<void> {
+    // @ts-ignore
+    if (typeof (this.dataSource as any).markPaymentComplete === 'function') {
+      // @ts-ignore
+      return (this.dataSource as any).markPaymentComplete(bookingId);
+    }
+    return Promise.resolve();
   }
 
   async getCompletedTrips(): Promise<Trip[]> {

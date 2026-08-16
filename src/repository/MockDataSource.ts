@@ -4,7 +4,7 @@
  * No network calls, suitable for offline development/testing
  */
 
-import { Trip, Booking, User, Driver, Passenger } from '../types';
+import { Trip, Booking, User, Driver, Passenger, Message, Conversation, Wallet, Transaction } from '../types';
 import { IDataSource } from './Repository';
 import mockDataStore from '../services/mockDataStore';
 
@@ -12,17 +12,13 @@ import mockDataStore from '../services/mockDataStore';
 let mockTrips = JSON.parse(JSON.stringify(mockDataStore.trips)) as Trip[];
 
 // Build a single source-of-truth bookings array derived from trips' passengers.
-// This ensures repository.getBookings() returns bookings that already exist on trips
-// while preserving runtime mutations (bookTrip / cancelBooking) which update both
-// mockTrips and mockBookings.
 let mockBookings: Booking[] = [];
 
-// Initialize mockBookings from mockTrips once (avoid duplicating on repeated calls)
+// Initialize mockBookings from mockTrips once
 (() => {
   try {
     mockBookings = mockTrips.flatMap((trip: Trip) => {
       const passengers = Array.isArray(trip.passengers) ? trip.passengers : [];
-      // Ensure tripId is attached to each booking item
       return passengers.map((b: Booking) => ({ ...b, tripId: trip.id }));
     });
   } catch (e) {
@@ -31,6 +27,11 @@ let mockBookings: Booking[] = [];
 })();
 
 let mockUsers = JSON.parse(JSON.stringify(mockDataStore.passengers)) as Passenger[];
+
+// Messaging and transactions
+let mockConversations = JSON.parse(JSON.stringify(mockDataStore.conversations || [])) as Conversation[];
+let mockTransactions = JSON.parse(JSON.stringify(mockDataStore.transactions || [])) as Transaction[];
+let mockWallets = JSON.parse(JSON.stringify(mockDataStore.wallets || [])) as Wallet[];
 
 class MockDataSource implements IDataSource {
   async fetchTrips(): Promise<Trip[]> {
@@ -116,6 +117,25 @@ class MockDataSource implements IDataSource {
 
     // Keep the single source-of-truth booking list in sync
     mockBookings.push(booking);
+
+    // Create a transaction record for the payment
+    const tx: Transaction = {
+      id: `tx-${Date.now()}`,
+      userId: passengerId,
+      amount: seatsBooked * trip.pricePerSeat,
+      type: 'CHARGE',
+      date: new Date().toISOString(),
+      bookingId: booking.id,
+      status: 'COMPLETED',
+    };
+    mockTransactions.push(tx);
+
+    // Update wallet balance (deduct)
+    const wallet = mockWallets.find(w => w.userId === passengerId);
+    if (wallet) {
+      wallet.balance = Math.max(0, wallet.balance - tx.amount);
+    }
+
     return JSON.parse(JSON.stringify(booking));
   }
 
@@ -154,6 +174,24 @@ class MockDataSource implements IDataSource {
         // If it wasn't present for some reason, add a cancelled record for history
         trip.passengers.push({ ...booking });
       }
+    }
+
+    // Optionally create a refund transaction (mock)
+    const refund: Transaction = {
+      id: `tx-refund-${Date.now()}`,
+      userId: booking.passengerId,
+      amount: (booking.seatsBooked || 0) * (trip?.pricePerSeat || 0),
+      type: 'REFUND',
+      date: new Date().toISOString(),
+      bookingId: booking.id,
+      status: 'COMPLETED',
+    };
+    mockTransactions.push(refund);
+
+    // Credit wallet
+    const wallet = mockWallets.find(w => w.userId === booking.passengerId);
+    if (wallet) {
+      wallet.balance += refund.amount;
     }
 
     // Do not remove booking from mockBookings — keep history
@@ -254,6 +292,92 @@ class MockDataSource implements IDataSource {
 
   async logout(): Promise<void> {
     await new Promise(resolve => setTimeout(resolve, 150));
+  }
+
+  // Messaging APIs
+  async getConversations(userId: string): Promise<Conversation[]> {
+    await new Promise(resolve => setTimeout(resolve, 200));
+    const convs = mockConversations.filter(c => c.participants.includes(userId));
+    return JSON.parse(JSON.stringify(convs));
+  }
+
+  async getConversation(conversationId: string): Promise<Conversation | null> {
+    await new Promise(resolve => setTimeout(resolve, 200));
+    const conv = mockConversations.find(c => c.id === conversationId);
+    return conv ? JSON.parse(JSON.stringify(conv)) : null;
+  }
+
+  async sendMessage(conversationId: string, fromUserId: string, text: string): Promise<Message> {
+    await new Promise(resolve => setTimeout(resolve, 150));
+    const conv = mockConversations.find(c => c.id === conversationId);
+    if (!conv) throw new Error('Conversation not found');
+
+    const msg: Message = {
+      id: `msg-${Date.now()}`,
+      conversationId,
+      fromUserId,
+      text,
+      timestamp: new Date().toISOString(),
+      read: false,
+    };
+
+    conv.messages.push(msg);
+
+    // mark unread for other participants (simple approach)
+    // (in this mock, read flag is per-message only)
+
+    return JSON.parse(JSON.stringify(msg));
+  }
+
+  // Wallet / Transactions
+  async getWallet(userId: string): Promise<Wallet> {
+    await new Promise(resolve => setTimeout(resolve, 150));
+    const wallet = mockWallets.find(w => w.userId === userId) || { userId, balance: 0 };
+    return JSON.parse(JSON.stringify(wallet));
+  }
+
+  async getTransactions(userId: string): Promise<Transaction[]> {
+    await new Promise(resolve => setTimeout(resolve, 200));
+    const txs = mockTransactions.filter(t => t.userId === userId);
+    return JSON.parse(JSON.stringify(txs));
+  }
+
+  async createTransaction(txInput: Omit<Transaction, 'id' | 'date'>): Promise<Transaction> {
+    await new Promise(resolve => setTimeout(resolve, 150));
+    const tx: Transaction = {
+      id: `tx-${Date.now()}`,
+      date: new Date().toISOString(),
+      ...txInput,
+    } as Transaction;
+    mockTransactions.push(tx);
+
+    // update wallet
+    const wallet = mockWallets.find(w => w.userId === tx.userId);
+    if (wallet) {
+      if (tx.type === 'PAYOUT') wallet.balance += tx.amount;
+      if (tx.type === 'CHARGE') wallet.balance -= tx.amount;
+      if (tx.type === 'REFUND') wallet.balance += tx.amount;
+    } else {
+      mockWallets.push({ userId: tx.userId, balance: tx.type === 'PAYOUT' || tx.type === 'REFUND' ? tx.amount : -tx.amount });
+    }
+
+    return JSON.parse(JSON.stringify(tx));
+  }
+
+  // Admin actions
+  async setDriverVerification(driverId: string, status: 'PENDING' | 'APPROVED' | 'REJECTED'): Promise<void> {
+    await new Promise(resolve => setTimeout(resolve, 150));
+    const idx = mockDataStore.drivers.findIndex(d => d.id === driverId);
+    if (idx === -1) throw new Error('Driver not found');
+    mockDataStore.drivers[idx].verificationStatus = status;
+  }
+
+  async markPaymentComplete(bookingId: string): Promise<void> {
+    await new Promise(resolve => setTimeout(resolve, 150));
+    // find booking and mark paymentStatus
+    const booking = mockBookings.find(b => b.id === bookingId);
+    if (!booking) throw new Error('Booking not found');
+    booking.paymentStatus = 'PAID';
   }
 
   // Helper for admin to fetch completed trips fixture

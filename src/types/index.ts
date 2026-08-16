@@ -26,6 +26,8 @@ export interface Driver extends User {
   vehicleNumber?: string;
   licenseNumber?: string;
   totalTrips?: number;
+  // verification status used by admin flows
+  verificationStatus?: 'PENDING' | 'APPROVED' | 'REJECTED';
 }
 
 export interface Passenger extends User {
@@ -84,4 +86,36 @@ export interface ApiResponse<T> {
   data?: T;
   error?: string;
   message?: string;
+}
+
+// Messaging types
+export interface Message {
+  id: string;
+  conversationId: string;
+  fromUserId: string;
+  text: string;
+  timestamp: string; // ISO
+  read?: boolean;
+}
+
+export interface Conversation {
+  id: string;
+  participants: string[]; // user ids
+  messages: Message[];
+}
+
+// Wallet / Payments
+export interface Transaction {
+  id: string;
+  userId: string;
+  amount: number;
+  type: 'CHARGE' | 'PAYOUT' | 'REFUND';
+  date: string;
+  bookingId?: string;
+  status?: 'PENDING' | 'COMPLETED' | 'FAILED';
+}
+
+export interface Wallet {
+  userId: string;
+  balance: number;
 }

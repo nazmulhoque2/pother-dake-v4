@@ -120,59 +120,46 @@ class Repository implements IDataSource {
   }
 
   async getConversations(userId: string): Promise<Conversation[]> {
-    // @ts-ignore
-    return (this.dataSource as any).getConversations(userId);
+    return this.dataSource.getConversations(userId);
   }
 
   async getConversation(conversationId: string): Promise<Conversation | null> {
-    // @ts-ignore
-    return (this.dataSource as any).getConversation(conversationId);
+    return this.dataSource.getConversation(conversationId);
   }
 
   async sendMessage(conversationId: string, fromUserId: string, text: string): Promise<Message> {
-    // @ts-ignore
-    return (this.dataSource as any).sendMessage(conversationId, fromUserId, text);
+    return this.dataSource.sendMessage(conversationId, fromUserId, text);
   }
 
   async getWallet(userId: string): Promise<Wallet> {
-    // @ts-ignore
-    return (this.dataSource as any).getWallet(userId);
+    return this.dataSource.getWallet(userId);
   }
 
   async getTransactions(userId: string): Promise<Transaction[]> {
-    // @ts-ignore
-    return (this.dataSource as any).getTransactions(userId);
+    return this.dataSource.getTransactions(userId);
   }
 
   async createTransaction(tx: Omit<Transaction, 'id' | 'date'>): Promise<Transaction> {
-    // @ts-ignore
-    return (this.dataSource as any).createTransaction(tx);
+    return this.dataSource.createTransaction(tx);
   }
 
   async setDriverVerification(driverId: string, status: 'PENDING' | 'APPROVED' | 'REJECTED'): Promise<void> {
-    // @ts-ignore
-    if (typeof (this.dataSource as any).setDriverVerification === 'function') {
-      // @ts-ignore
-      return (this.dataSource as any).setDriverVerification(driverId, status);
+    if (this.dataSource.setDriverVerification) {
+      return this.dataSource.setDriverVerification(driverId, status);
     }
     return Promise.resolve();
   }
 
   async markPaymentComplete(bookingId: string): Promise<void> {
-    // @ts-ignore
-    if (typeof (this.dataSource as any).markPaymentComplete === 'function') {
-      // @ts-ignore
-      return (this.dataSource as any).markPaymentComplete(bookingId);
+    if (this.dataSource.markPaymentComplete) {
+      return this.dataSource.markPaymentComplete(bookingId);
     }
     return Promise.resolve();
   }
 
   async getCompletedTrips(): Promise<Trip[]> {
-    // If the underlying data source implements getCompletedTrips, call it; otherwise return empty
-    // @ts-ignore - optional method on IDataSource
-    if (typeof (this.dataSource as any).getCompletedTrips === 'function') {
-      // @ts-ignore
-      return (this.dataSource as any).getCompletedTrips();
+    if (this.dataSource.getCompletedTrips) {
+      return this.dataSource.getCompletedTrips();
     }
     return [];
   }

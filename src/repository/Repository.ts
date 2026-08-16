@@ -34,6 +34,8 @@ export interface IDataSource {
   getConversations(userId: string): Promise<Conversation[]>;
   getConversation(conversationId: string): Promise<Conversation | null>;
   sendMessage(conversationId: string, fromUserId: string, text: string): Promise<Message>;
+  // Optional: mark messages in a conversation as read for a given user
+  markConversationRead?(conversationId: string, userId: string): Promise<void>;
 
   // Wallet / Transactions
   getWallet(userId: string): Promise<Wallet>;
@@ -129,6 +131,13 @@ class Repository implements IDataSource {
 
   async sendMessage(conversationId: string, fromUserId: string, text: string): Promise<Message> {
     return this.dataSource.sendMessage(conversationId, fromUserId, text);
+  }
+
+  async markConversationRead(conversationId: string, userId: string): Promise<void> {
+    if (this.dataSource.markConversationRead) {
+      return this.dataSource.markConversationRead(conversationId, userId);
+    }
+    return Promise.resolve();
   }
 
   async getWallet(userId: string): Promise<Wallet> {

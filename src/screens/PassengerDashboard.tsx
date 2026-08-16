@@ -1,6 +1,6 @@
 import styled from 'styled-components/native';
-import React, { useEffect, useState } from 'react';
-import { View, Text, TouchableOpacity, ScrollView, ActivityIndicator, Alert, FlatList } from 'react-native';
+import React, { useEffect, useState, useCallback } from 'react';
+import { View, Text, TouchableOpacity, ScrollView, ActivityIndicator, Alert, FlatList, SafeAreaView, RefreshControl, KeyboardAvoidingView, Platform } from 'react-native';
 import Header from '../components/Header';
 import { useAuth } from '../auth/AuthContext';
 import repository from '../repository';
@@ -21,7 +21,7 @@ const Content = styled.ScrollView`
 `;
 
 const WelcomeCard = styled.View`
-  background: linear-gradient(135deg, #2563eb 0%, #1e40af 100%);
+  background-color: #2563eb;
   border-radius: 12px;
   padding: 20px;
   margin-bottom: 20px;
@@ -118,7 +118,6 @@ const ActionButtonText = styled.Text<{ variant?: string }>`
 `;
 
 const EmptyStateContainer = styled.View`
-  flex: 1;
   justify-content: center;
   align-items: center;
   padding: 40px 16px;
@@ -146,6 +145,8 @@ function PassengerDashboardInner({ navigation }: Props) {
   const [bookings, setBookings] = useState<BookingWithTrip[]>([]);
   const [trips, setTrips] = useState<Trip[]>([]);
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     loadData();
@@ -153,6 +154,7 @@ function PassengerDashboardInner({ navigation }: Props) {
 
   const loadData = async () => {
     try {
+      setError(null);
       setLoading(true);
       if (!user) {
         setLoading(false);
@@ -173,11 +175,21 @@ function PassengerDashboardInner({ navigation }: Props) {
       setBookings(enrichedBookings);
       setTrips(tripList);
     } catch (err: any) {
-      Alert.alert('Error', err?.message || 'Failed to load data');
+      const msg = err?.message || 'Failed to load data';
+      setError(msg);
     } finally {
       setLoading(false);
     }
   };
+
+  const onRefresh = useCallback(async () => {
+    setRefreshing(true);
+    try {
+      await loadData();
+    } finally {
+      setRefreshing(false);
+    }
+  }, [user?.id]);
 
   const getUpcomingBookings = (): BookingWithTrip[] => {
     const now = new Date();
@@ -191,6 +203,18 @@ function PassengerDashboardInner({ navigation }: Props) {
 
   const upcomingBookings = getUpcomingBookings();
   const upcomingCount = upcomingBookings.length;
+
+  const renderBookingItem = useCallback(({ item }: { item: BookingWithTrip }) => (
+    <BookingCard>
+      <BookingTitle>
+        {item.tripData?.origin.name} → {item.tripData?.destination.name}
+      </BookingTitle>
+      <BookingDetail>📅 {item.tripData?.departureDate}</BookingDetail>
+      <BookingDetail>🕐 {item.tripData?.departureTime}</BookingDetail>
+      <BookingDetail>👨 Driver: {item.tripData?.driver.name}</BookingDetail>
+      <BookingDetail>💵 Total: ৳{(item.tripData?.pricePerSeat || 0) * item.seatsBooked}</BookingDetail>
+    </BookingCard>
+  ), []);
 
   if (loading) {
     return (
@@ -206,94 +230,112 @@ function PassengerDashboardInner({ navigation }: Props) {
   return (
     <>
       <Header navigation={navigation} title="Dashboard" />
-      <Container>
-        <Content showsVerticalScrollIndicator={false}>
-          {/* Welcome Card */}
-          <WelcomeCard>
-            <WelcomeTitle>Welcome, {user?.name}! 👋</WelcomeTitle>
-            <WelcomeSubtitle>Find and book your next ride</WelcomeSubtitle>
-          </WelcomeCard>
-
-          {/* Quick Stats */}
-          <QuickStatsContainer>
-            <StatCard>
-              <StatNumber>{upcomingCount}</StatNumber>
-              <StatLabel>Upcoming Rides</StatLabel>
-            </StatCard>
-            <StatCard>
-              <StatNumber>{bookings.length}</StatNumber>
-              <StatLabel>Total Bookings</StatLabel>
-            </StatCard>
-            <StatCard>
-              <StatNumber>⭐ {user?.rating || 0}</StatNumber>
-              <StatLabel>Rating</StatLabel>
-            </StatCard>
-          </QuickStatsContainer>
-
-          {/* Upcoming Bookings */}
-          {upcomingBookings.length > 0 ? (
-            <>
-              <SectionTitle>Upcoming Rides</SectionTitle>
-              <FlatList
-                data={upcomingBookings.slice(0, 3)}
-                scrollEnabled={false}
-                renderItem={({ item }) => (
-                  <BookingCard>
-                    <BookingTitle>
-                      {item.tripData?.origin.name} → {item.tripData?.destination.name}
-                    </BookingTitle>
-                    <BookingDetail>📅 {item.tripData?.departureDate}</BookingDetail>
-                    <BookingDetail>🕐 {item.tripData?.departureTime}</BookingDetail>
-                    <BookingDetail>👨 Driver: {item.tripData?.driver.name}</BookingDetail>
-                    <BookingDetail>💵 Total: ৳{(item.tripData?.pricePerSeat || 0) * item.seatsBooked}</BookingDetail>
-                  </BookingCard>
-                )}
-                keyExtractor={item => item.id}
-              />
-            </>
-          ) : (
-            <EmptyStateContainer>
-              <EmptyStateText>No upcoming rides booked</EmptyStateText>
-              <ActionButton onPress={() => navigation.navigate('Search')}>
-                <ActionButtonText>Find a Ride</ActionButtonText>
-              </ActionButton>
-            </EmptyStateContainer>
-          )}
-
-          {/* Quick Actions */}
-          <QuickActionsContainer>
-            <ActionButton onPress={() => navigation.navigate('Search')}>
-              <ActionButtonText>🔍 Search Rides</ActionButtonText>
-            </ActionButton>
-            <ActionButton
-              variant="secondary"
-              onPress={() => navigation.navigate('BookingHistory')}
+      <SafeAreaView style={{ flex: 1 }}>
+        <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+          <Container>
+            <Content
+              showsVerticalScrollIndicator={false}
+              refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
             >
-              <ActionButtonText variant="secondary">📋 Booking History</ActionButtonText>
-            </ActionButton>
-            <ActionButton
-              variant="secondary"
-              onPress={() => navigation.navigate('Profile')}
-            >
-              <ActionButtonText variant="secondary">👤 Profile</ActionButtonText>
-            </ActionButton>
-            <ActionButton
-              variant="secondary"
-              onPress={() =>
-                Alert.alert('Confirm', 'Logout?', [
-                  { text: 'Cancel' },
-                  {
-                    text: 'Logout',
-                    onPress: logout,
-                  },
-                ])
-              }
-            >
-              <ActionButtonText variant="secondary">🚪 Logout</ActionButtonText>
-            </ActionButton>
-          </QuickActionsContainer>
-        </Content>
-      </Container>
+              {/* Welcome Card */}
+              <WelcomeCard>
+                <WelcomeTitle>Welcome, {user?.name}! 👋</WelcomeTitle>
+                <WelcomeSubtitle>Find and book your next ride</WelcomeSubtitle>
+              </WelcomeCard>
+
+              {/* Error state */}
+              {error ? (
+                <EmptyStateContainer>
+                  <EmptyStateText>{error}</EmptyStateText>
+                  <ActionButton onPress={onRefresh} accessible accessibilityLabel="Retry">
+                    <ActionButtonText>Retry</ActionButtonText>
+                  </ActionButton>
+                </EmptyStateContainer>
+              ) : (
+                <>
+                  {/* Quick Stats */}
+                  <QuickStatsContainer>
+                    <StatCard>
+                      <StatNumber>{upcomingCount}</StatNumber>
+                      <StatLabel>Upcoming Rides</StatLabel>
+                    </StatCard>
+                    <StatCard>
+                      <StatNumber>{bookings.length}</StatNumber>
+                      <StatLabel>Total Bookings</StatLabel>
+                    </StatCard>
+                    <StatCard>
+                      <StatNumber>⭐ {user?.rating || 0}</StatNumber>
+                      <StatLabel>Rating</StatLabel>
+                    </StatCard>
+                  </QuickStatsContainer>
+
+                  {/* Upcoming Bookings */}
+                  {upcomingBookings.length > 0 ? (
+                    <>
+                      <SectionTitle>Upcoming Rides</SectionTitle>
+                      <FlatList
+                        data={upcomingBookings.slice(0, 3)}
+                        scrollEnabled={false}
+                        nestedScrollEnabled
+                        renderItem={renderBookingItem}
+                        keyExtractor={item => item.id}
+                        removeClippedSubviews
+                        initialNumToRender={3}
+                      />
+                    </>
+                  ) : (
+                    <EmptyStateContainer>
+                      <EmptyStateText>No upcoming rides booked</EmptyStateText>
+                      <ActionButton onPress={() => navigation.navigate('Search')} accessible accessibilityLabel="Find a Ride">
+                        <ActionButtonText>Find a Ride</ActionButtonText>
+                      </ActionButton>
+                    </EmptyStateContainer>
+                  )}
+
+                  {/* Quick Actions */}
+                  <QuickActionsContainer>
+                    <ActionButton onPress={() => navigation.navigate('Search')} accessible accessibilityLabel="Search Rides">
+                      <ActionButtonText>🔍 Search Rides</ActionButtonText>
+                    </ActionButton>
+                    <ActionButton
+                      variant="secondary"
+                      onPress={() => navigation.navigate('BookingHistory')}
+                      accessible
+                      accessibilityLabel="Booking History"
+                    >
+                      <ActionButtonText variant="secondary">📋 Booking History</ActionButtonText>
+                    </ActionButton>
+                    <ActionButton
+                      variant="secondary"
+                      onPress={() => navigation.navigate('Profile')}
+                      accessible
+                      accessibilityLabel="Profile"
+                    >
+                      <ActionButtonText variant="secondary">👤 Profile</ActionButtonText>
+                    </ActionButton>
+                    <ActionButton
+                      variant="secondary"
+                      onPress={() =>
+                        Alert.alert('Confirm', 'Logout?', [
+                          { text: 'Cancel' },
+                          {
+                            text: 'Logout',
+                            onPress: logout,
+                          },
+                        ])
+                      }
+                      accessible
+                      accessibilityLabel="Logout"
+                    >
+                      <ActionButtonText variant="secondary">🚪 Logout</ActionButtonText>
+                    </ActionButton>
+                  </QuickActionsContainer>
+                </>
+              )}
+            </Content>
+          </Container>
+        </KeyboardAvoidingView>
+      </SafeAreaView>
     </>
   );
 }
